@@ -2,7 +2,7 @@ require 'discordrb'
 require 'yaml'
 require 'rubocop'
 
-CHANNEL_ID = 83_281_822_225_530_880.freeze
+CHANNEL_ID = 83_281_822_225_530_880
 RUBOCOP_EMOTE = 'rubocop%3A246708457460334592'.freeze
 PASS_EMOTE = 'helYea%3A236243426662678528'.freeze
 FAIL_EMOTE = 'helNa%3A239120424938504192'.freeze
