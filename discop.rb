@@ -22,14 +22,34 @@ def rubocop_this(team, text)
   end.join("\n")
 end
 
+def my_cops
+  RuboCop::Cop::Cop.non_rails -
+      [
+          RuboCop::Cop::Metrics::AbcSize,
+          RuboCop::Cop::Metrics::BlockNesting,
+          RuboCop::Cop::Metrics::BlockLength,
+          RuboCop::Cop::Metrics::ClassLength,
+          RuboCop::Cop::Metrics::CyclomaticComplexity,
+          RuboCop::Cop::Metrics::LineLength,
+          RuboCop::Cop::Metrics::MethodLength,
+          RuboCop::Cop::Metrics::ModuleLength,
+          RuboCop::Cop::Metrics::ParameterLists,
+          RuboCop::Cop::Metrics::PerceivedComplexity,
+          RuboCop::Cop::Style::Alias,
+          RuboCop::Cop::Style::ClassAndModuleChildren,
+          RuboCop::Cop::Style::Documentation,
+          RuboCop::Cop::Style::FileName,
+          RuboCop::Cop::Style::TrailingBlankLines,
+      ]
+end
+
 bot.message(in: CHANNEL_ID) do |event|
   next unless event.content =~ /```(?:ruby|rb)\n[\s\S]+```/i
   event.message.react(RUBOCOP_EMOTE)
   reply = []
   event.content.scan(/```(?:ruby|rb)\n([\s\S]+?)```/i).each do |ruby_code|
-    cops = RuboCop::Cop::Cop.non_rails - [RuboCop::Cop::Style::FileName, RuboCop::Cop::Style::TrailingBlankLines]
     config = RuboCop::ConfigLoader.default_configuration
-    team = RuboCop::Cop::Team.new(cops, config)
+    team = RuboCop::Cop::Team.new(my_cops, config)
     message = rubocop_this(team, ruby_code[0])
     unless message.empty?
       event.message.react(FAIL_EMOTE) if reply.empty?
