@@ -40,7 +40,7 @@ def my_cops
           RuboCop::Cop::Style::Documentation,
           RuboCop::Cop::Style::FileName,
           RuboCop::Cop::Style::TrailingBlankLines,
-          Rubocop::Cop::Lint::UselessAssignment
+          RuboCop::Cop::Lint::UselessAssignment
       ]
 end
 
