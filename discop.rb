@@ -3,6 +3,7 @@ require 'yaml'
 require 'rubocop'
 
 CHANNEL_ID = 83_281_822_225_530_880
+ROLE_IDS = [209_033_538_329_116_682, 111_173_097_888_993_280, 103_548_885_602_942_976]
 RUBOCOP_EMOTE = 'rubocop%3A246708457460334592'.freeze
 PASS_EMOTE = 'helYea%3A236243426662678528'.freeze
 FAIL_EMOTE = 'helNa%3A239120424938504192'.freeze
@@ -71,7 +72,11 @@ bot.message(in: CHANNEL_ID) do |event|
 end
 
 bot.reaction_add(emoji: DELETE_EMOTE) do |event|
-  event.message.delete if event.channel.id == CHANNEL_ID && event.message.mentions.first == event.user && event.message.user == bot.profile
+  event.message.delete if [
+    event.channel.id == CHANNEL_ID,
+    event.message.mentions.first == event.user || !(event.user.on(event.channel.server).roles & ROLE_IDS).empty?,
+    event.message.user == bot.profile
+  ].all?
   nil
 end
 
