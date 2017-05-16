@@ -39,6 +39,7 @@ def my_cops
           RuboCop::Cop::Style::ClassAndModuleChildren,
           RuboCop::Cop::Style::Documentation,
           RuboCop::Cop::Style::FileName,
+          RuboCop::Cop::Style::InitialIndentation,
           RuboCop::Cop::Style::TrailingBlankLines,
           RuboCop::Cop::Lint::UselessAssignment
       ]
