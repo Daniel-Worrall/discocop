@@ -24,25 +24,26 @@ end
 
 def my_cops
   RuboCop::Cop::Cop.non_rails -
-      [
-          RuboCop::Cop::Metrics::AbcSize,
-          RuboCop::Cop::Metrics::BlockNesting,
-          RuboCop::Cop::Metrics::BlockLength,
-          RuboCop::Cop::Metrics::ClassLength,
-          RuboCop::Cop::Metrics::CyclomaticComplexity,
-          RuboCop::Cop::Metrics::LineLength,
-          RuboCop::Cop::Metrics::MethodLength,
-          RuboCop::Cop::Metrics::ModuleLength,
-          RuboCop::Cop::Metrics::ParameterLists,
-          RuboCop::Cop::Metrics::PerceivedComplexity,
-          RuboCop::Cop::Style::Alias,
-          RuboCop::Cop::Style::ClassAndModuleChildren,
-          RuboCop::Cop::Style::Documentation,
-          RuboCop::Cop::Style::FileName,
-          RuboCop::Cop::Style::InitialIndentation,
-          RuboCop::Cop::Style::TrailingBlankLines,
-          RuboCop::Cop::Lint::UselessAssignment
-      ]
+    [
+      RuboCop::Cop::Metrics::AbcSize,
+      RuboCop::Cop::Metrics::BlockNesting,
+      RuboCop::Cop::Metrics::BlockLength,
+      RuboCop::Cop::Metrics::ClassLength,
+      RuboCop::Cop::Metrics::CyclomaticComplexity,
+      RuboCop::Cop::Metrics::LineLength,
+      RuboCop::Cop::Metrics::MethodLength,
+      RuboCop::Cop::Metrics::ModuleLength,
+      RuboCop::Cop::Metrics::ParameterLists,
+      RuboCop::Cop::Metrics::PerceivedComplexity,
+      RuboCop::Cop::Style::Alias,
+      RuboCop::Cop::Style::ClassAndModuleChildren,
+      RuboCop::Cop::Style::Documentation,
+      RuboCop::Cop::Style::FileName,
+      RuboCop::Cop::Style::InitialIndentation,
+      RuboCop::Cop::Style::NumericLiterals,
+      RuboCop::Cop::Style::TrailingBlankLines,
+      RuboCop::Cop::Lint::UselessAssignment
+    ]
 end
 
 bot.message(in: CHANNEL_ID) do |event|
