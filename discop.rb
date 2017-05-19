@@ -54,6 +54,10 @@ def rubocop_team
   RuboCop::Cop::Team.new(my_cops, config)
 end
 
+def role_check(member)
+  ROLE_IDS.any? { |r| member.role?(r) }
+end
+
 bot.message(in: CHANNEL_ID, contains: /```(?:ruby|rb)\n[\s\S]+```/i) do |event|
   event.message.react(RUBOCOP_EMOTE)
 end
@@ -62,13 +66,13 @@ bot.reaction_add(emoji: RUBOCOP_EMOTE_ID) do |event|
   if event.message.author == bot.profile
     next unless [
       event.channel.id == CHANNEL_ID,
-      event.message.mentions.first == event.user || !(event.user.on(event.channel.server).roles & ROLE_IDS).empty?
+      event.message.mentions.first == event.user || role_check(event.user.on(event.channel.server))
     ].all?
   else
     next unless [
       event.channel.id == CHANNEL_ID,
       event.message.content.match?(/```(?:ruby|rb)\n[\s\S]+```/i),
-      event.message.author == event.user || !(event.user.on(event.channel.server).roles & ROLE_IDS).empty?,
+      event.message.author == event.user || role_check(event.user.on(event.channel.server)),
       !@cop_hash[event.message.id]
     ].all?
     reply = []
@@ -82,7 +86,7 @@ bot.reaction_add(emoji: RUBOCOP_EMOTE_ID) do |event|
     if reply.empty?
       event.message.react(PASS_EMOTE)
     else
-      message = event.channel.send_embed(event.user.mention) do |embed|
+      message = event.channel.send_embed(event.message.author.mention) do |embed|
         embed.author = Discordrb::Webhooks::EmbedAuthor.new(name: 'RuboCop', url: 'https://github.com/bbatsov/rubocop', icon_url: 'https://gratipay.com/rubocop/image')
         embed.description = reply.join('')
       end
@@ -96,7 +100,7 @@ end
 bot.reaction_add(emoji: DELETE_EMOTE) do |event|
   if [
     event.channel.id == CHANNEL_ID,
-    event.message.mentions.first == event.user || !(event.user.on(event.channel.server).roles & ROLE_IDS).empty?,
+    event.message.mentions.first == event.user || role_check(event.user.on(event.channel.server)),
     event.message.user == bot.profile
   ].all?
     event.message.delete
