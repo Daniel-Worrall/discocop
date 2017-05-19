@@ -3,13 +3,15 @@ require 'yaml'
 require 'rubocop'
 
 CHANNEL_ID = 83_281_822_225_530_880
-ROLE_IDS = [209_033_538_329_116_682, 111_173_097_888_993_280, 103_548_885_602_942_976]
+ROLE_IDS = [209_033_538_329_116_682, 111_173_097_888_993_280, 103_548_885_602_942_976].freeze
 RUBOCOP_EMOTE = 'rubocop%3A246708457460334592'.freeze
+RUBOCOP_EMOTE_ID = 246_708_457_460_334_592
 PASS_EMOTE = 'helYea%3A236243426662678528'.freeze
 FAIL_EMOTE = 'helNa%3A239120424938504192'.freeze
 DELETE_EMOTE = '❌'.freeze
 
 @secrets = YAML.load_file('secret.yml')
+@cop_hash = {}
 bot = Discordrb::Bot.new token: @secrets[:token]
 
 def rubocop_this(team, text)
@@ -47,38 +49,59 @@ def my_cops
     ]
 end
 
-bot.message(in: CHANNEL_ID) do |event|
-  next unless event.content =~ /```(?:ruby|rb)\n[\s\S]+```/i
+def rubocop_team
+  config = RuboCop::ConfigLoader.default_configuration
+  RuboCop::Cop::Team.new(my_cops, config)
+end
+
+bot.message(in: CHANNEL_ID, contains: /```(?:ruby|rb)\n[\s\S]+```/i) do |event|
   event.message.react(RUBOCOP_EMOTE)
-  reply = []
-  event.content.scan(/```(?:ruby|rb)\n([\s\S]+?)```/i).each do |ruby_code|
-    config = RuboCop::ConfigLoader.default_configuration
-    team = RuboCop::Cop::Team.new(my_cops, config)
-    message = rubocop_this(team, ruby_code[0])
-    unless message.empty?
-      event.message.react(FAIL_EMOTE) if reply.empty?
-      reply << message
-    end
-  end
-  if reply.empty?
-    event.message.react(PASS_EMOTE)
+end
+
+bot.reaction_add(emoji: RUBOCOP_EMOTE_ID) do |event|
+  if event.message.author == bot.profile
+    next unless [
+      event.channel.id == CHANNEL_ID,
+      event.message.mentions.first == event.user || !(event.user.on(event.channel.server).roles & ROLE_IDS).empty?
+    ].all?
   else
-    message = event.channel.send_embed(event.user.mention) do |embed|
-      embed.author = Discordrb::Webhooks::EmbedAuthor.new(name: 'RuboCop', url: 'https://github.com/bbatsov/rubocop', icon_url: 'https://gratipay.com/rubocop/image')
-      embed.description = reply.join('')
+    next unless [
+      event.channel.id == CHANNEL_ID,
+      event.message.content.match?(/```(?:ruby|rb)\n[\s\S]+```/i),
+      event.message.author == event.user || !(event.user.on(event.channel.server).roles & ROLE_IDS).empty?,
+      !@cop_hash[event.message.id]
+    ].all?
+    reply = []
+    event.message.content.scan(/```(?:ruby|rb)\n([\s\S]+?)```/i).each do |ruby_code|
+      message = rubocop_this(rubocop_team, ruby_code[0])
+      unless message.empty?
+        event.message.react(FAIL_EMOTE) if reply.empty?
+        reply << message
+      end
     end
-    message.react(DELETE_EMOTE)
+    if reply.empty?
+      event.message.react(PASS_EMOTE)
+    else
+      message = event.channel.send_embed(event.user.mention) do |embed|
+        embed.author = Discordrb::Webhooks::EmbedAuthor.new(name: 'RuboCop', url: 'https://github.com/bbatsov/rubocop', icon_url: 'https://gratipay.com/rubocop/image')
+        embed.description = reply.join('')
+      end
+      @cop_hash[event.message.id] = message.id
+      message.react(RUBOCOP_EMOTE)
+      message.react(DELETE_EMOTE)
+    end
   end
-  nil
 end
 
 bot.reaction_add(emoji: DELETE_EMOTE) do |event|
-  event.message.delete if [
+  if [
     event.channel.id == CHANNEL_ID,
     event.message.mentions.first == event.user || !(event.user.on(event.channel.server).roles & ROLE_IDS).empty?,
     event.message.user == bot.profile
   ].all?
-  nil
+    event.message.delete
+    @cop_hash.delete(@cop_hash.key(event.message.id))
+  end
 end
 
 bot.run
