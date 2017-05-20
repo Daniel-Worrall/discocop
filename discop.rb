@@ -1,6 +1,7 @@
 require 'discordrb'
 require 'yaml'
 require 'rubocop'
+require 'tempfile'
 
 CHANNEL_ID = 83_281_822_225_530_880
 ROLE_IDS = [209_033_538_329_116_682, 111_173_097_888_993_280, 103_548_885_602_942_976].freeze
@@ -13,7 +14,14 @@ DELETE_EMOTE = '❌'.freeze
 @secrets = YAML.load_file('secret.yml')
 @cop_hash = {}
 @cached_reply = {}
-bot = Discordrb::Bot.new token: @secrets[:token]
+bot = Discordrb::Bot.new token: @secrets[:token], log_mode: :quiet
+
+def temp_file(text)
+  temp_file = Tempfile.new(['foo', '.rb'])
+  temp_file.write(text)
+  temp_file.close
+  temp_file
+end
 
 def rubocop_this(team, text)
   processed = RuboCop::ProcessedSource.new(text, 2.4)
@@ -22,8 +30,19 @@ def rubocop_this(team, text)
     l = o.location
     c = o.severity.code
     line = l.line == l.last_line
-    "**L#{l.line}:#{l.column + 1}: #{c}:** *#{o.message}*\n```ruby\n#{l.source_line}#{' ...' unless line}\n#{' ' * l.column + '^' * (line ? l.last_column - l.column : l.source_line.length - l.column)}```"
+    "**L#{l.line}:#{l.column + 1}: #{c}:** *#{o.message}*\n```rb\n#{l.source_line}#{' ...' unless line}\n#{' ' * l.column + '^' * (line ? l.last_column - l.column : l.source_line.length - l.column)}```"
   end.join("\n")
+end
+
+def rubocorrect_this(team, file)
+  processed = RuboCop::ProcessedSource.from_file(file, 2.4)
+  offenses = team.inspect_file(processed)
+  if offenses.empty?
+    ''
+  else
+    file.open
+    file.read
+  end
 end
 
 def my_cops
@@ -50,9 +69,9 @@ def my_cops
     ]
 end
 
-def rubocop_team
+def rubocop_team(auto_correct: false)
   config = RuboCop::ConfigLoader.default_configuration
-  RuboCop::Cop::Team.new(my_cops, config)
+  RuboCop::Cop::Team.new(my_cops, config, auto_correct: auto_correct)
 end
 
 def rubocop_reply(content)
@@ -60,6 +79,17 @@ def rubocop_reply(content)
   content.scan(/```(?:ruby|rb)\n([\s\S]+?)```/i).each do |ruby_code|
     message = rubocop_this(rubocop_team, ruby_code[0])
     reply.concat(message) unless message.empty?
+  end
+  reply.empty? ? nil : reply
+end
+
+def rubocorrect_reply(content)
+  reply = ''
+  content.scan(/```(?:ruby|rb)\n([\s\S]+?)```/i).each do |ruby_code|
+    file = temp_file(ruby_code[0])
+    message = rubocorrect_this(rubocop_team(auto_correct: true), file)
+    file.unlink
+    reply.concat("```rb\n#{message}```") unless message.empty?
   end
   reply.empty? ? nil : reply
 end
@@ -81,10 +111,24 @@ end
 
 bot.reaction_add(emoji: RUBOCOP_EMOTE_ID) do |event|
   if event.message.author == bot.profile
+    original_message = event.channel.message(@cop_hash.key(event.message.id))
     next unless [
       event.channel.id == CHANNEL_ID,
-      event.message.mentions.first == event.user || role_check(event.user.on(event.channel.server))
+      event.message.mentions.first == event.user || role_check(event.user.on(event.channel.server)),
+      original_message,
+      !@cop_hash[event.message.id]
     ].all?
+    reply = @cached_reply[event.message.id]
+    reply ||= rubocorrect_reply(original_message.content)
+    if reply
+      @cached_reply[event.message.id] ||= reply
+      message = event.channel.send_embed(original_message.author.mention) do |embed|
+        embed.author = Discordrb::Webhooks::EmbedAuthor.new(name: 'RuboCop', url: 'https://github.com/bbatsov/rubocop', icon_url: 'https://gratipay.com/rubocop/image')
+        embed.description = reply
+      end
+      message.react(DELETE_EMOTE)
+      @cop_hash[event.message.id] = message.id
+    end
   else
     next unless [
       event.channel.id == CHANNEL_ID,
@@ -124,7 +168,6 @@ bot.reaction_add(emoji: DELETE_EMOTE) do |event|
 end
 
 bot.ready do
-  @cop_hash = {}
   @cached_reply = {}
 end
 
