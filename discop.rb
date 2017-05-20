@@ -12,6 +12,7 @@ DELETE_EMOTE = '❌'.freeze
 
 @secrets = YAML.load_file('secret.yml')
 @cop_hash = {}
+@cached_reply = {}
 bot = Discordrb::Bot.new token: @secrets[:token]
 
 def rubocop_this(team, text)
@@ -54,12 +55,28 @@ def rubocop_team
   RuboCop::Cop::Team.new(my_cops, config)
 end
 
+def rubocop_reply(content)
+  reply = ''
+  content.scan(/```(?:ruby|rb)\n([\s\S]+?)```/i).each do |ruby_code|
+    message = rubocop_this(rubocop_team, ruby_code[0])
+    reply.concat(message) unless message.empty?
+  end
+  reply.empty? ? nil : reply
+end
+
 def role_check(member)
   ROLE_IDS.any? { |r| member.role?(r) }
 end
 
 bot.message(in: CHANNEL_ID, contains: /```(?:ruby|rb)\n[\s\S]+```/i) do |event|
   event.message.react(RUBOCOP_EMOTE)
+  message = rubocop_reply(event.message.content)
+  if message
+    @cached_reply[event.message.id] = message
+    event.message.react(FAIL_EMOTE)
+  else
+    event.message.react(PASS_EMOTE)
+  end
 end
 
 bot.reaction_add(emoji: RUBOCOP_EMOTE_ID) do |event|
@@ -75,24 +92,22 @@ bot.reaction_add(emoji: RUBOCOP_EMOTE_ID) do |event|
       event.message.author == event.user || role_check(event.user.on(event.channel.server)),
       !@cop_hash[event.message.id]
     ].all?
-    reply = []
-    event.message.content.scan(/```(?:ruby|rb)\n([\s\S]+?)```/i).each do |ruby_code|
-      message = rubocop_this(rubocop_team, ruby_code[0])
-      unless message.empty?
-        event.message.react(FAIL_EMOTE) if reply.empty?
-        reply << message
+    reply = @cached_reply[event.message.id]
+    reply ||= rubocop_reply(event.message.content)
+    if reply
+      unless @cached_reply[event.message.id]
+        event.message.react(FAIL_EMOTE)
+        @cached_reply[event.message.id] = reply
       end
-    end
-    if reply.empty?
-      event.message.react(PASS_EMOTE)
-    else
       message = event.channel.send_embed(event.message.author.mention) do |embed|
         embed.author = Discordrb::Webhooks::EmbedAuthor.new(name: 'RuboCop', url: 'https://github.com/bbatsov/rubocop', icon_url: 'https://gratipay.com/rubocop/image')
-        embed.description = reply.join('')
+        embed.description = reply
       end
       @cop_hash[event.message.id] = message.id
       message.react(RUBOCOP_EMOTE)
       message.react(DELETE_EMOTE)
+    elsif !@cached_reply[event.message.id]
+      event.message.react(PASS_EMOTE)
     end
   end
 end
@@ -106,6 +121,11 @@ bot.reaction_add(emoji: DELETE_EMOTE) do |event|
     event.message.delete
     @cop_hash.delete(@cop_hash.key(event.message.id))
   end
+end
+
+bot.ready do
+  @cop_hash = {}
+  @cached_reply = {}
 end
 
 bot.run
