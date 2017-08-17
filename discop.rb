@@ -16,7 +16,7 @@ DELETE_EMOTE = '❌'.freeze
 @cop_hash = {}
 @correct_hash = {}
 @cached_reply = {}
-bot = Discordrb::Bot.new token: @secrets[:token], log_mode: :quiet, ignore_bots: true
+bot = Discordrb::Bot.new token: @secrets[:token], log_mode: :quiet
 
 def temp_file(text)
   temp_file = Tempfile.new(['foo', '.rb'])
